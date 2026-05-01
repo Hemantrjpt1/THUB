@@ -1249,7 +1249,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- COLOSSAL RAID - PHASE 1: Cannon Only on Colossal
+-- COLOSSAL RAID - SIMPLE WORKING VERSION
 -- ==========================================
 getgenv().ColossalRaidConfig = {
     Enabled = false,
@@ -1277,188 +1277,123 @@ function ColossalRaid:Start()
     if self._running then return end
     if isLobby then return end
     
-    local rsObj = ReplicatedStorage:FindFirstChild("Objectives")
-    if not rsObj then return end
-    if not rsObj:FindFirstChild("Defend_Eren_2") then
-        Library:Notify({Title = "Colossal Raid", Description = "Not a Colossal Raid!", Time = 3})
-        return
-    end
-    
     self._running = true
     
+    print("Colossal Raid STARTED")
+    
     task.spawn(function()
-        UpdateStatus("Colossal Raid: ON")
-        local char, root = nil, nil
-        local lastAttack = 0
-        local lastCannonMount = 0
-        local atCannon = false
-        
         while self._running do
-            char = lp.Character
-            if not char then task.wait(); continue end
-            root = char:FindFirstChild("HumanoidRootPart")
-            if not root then task.wait(); continue end
+            -- Basic checks
+            local char = lp.Character
+            if not char then task.wait(0.5); goto continue end
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if not root then task.wait(0.5); goto continue end
             
-            if not checkMission() then task.wait(1); continue end
-            
-            -- Disable collisions
-            for _, p in ipairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide = false end
-            end
-            
-            local now = os.clock()
-            local defendEren = rsObj:FindFirstChild("Defend_Eren_2")
-            local stallColossal = rsObj:FindFirstChild("Stall_Colossal_Titan")
-            local isPhase1 = defendEren and defendEren.Value == 0
-            local isPhase2 = stallColossal and stallColossal.Value == 0
-            local erenPart = findEren()
-            
-            -- === PHASE 1: CANNON ONLY ON COLOSSAL ===
-            if isPhase1 then
-                if not atCannon then
-                    UpdateStatus("Phase 1: Defending Eren")
+            -- Kill all nearby titans first
+            local titansFolder = workspace:FindFirstChild("Titans")
+            if titansFolder then
+                for _, titan in ipairs(titansFolder:GetChildren()) do
+                    if not self._running then break end
+                    if titan:GetAttribute("Killed") then goto continue_titan end
                     
-                    -- Kill titans near Eren
-                    if erenPart then
-                        local titansFolder = workspace:FindFirstChild("Titans")
-                        local closestNape = nil
-                        local closestDist = 300
+                    -- Find nape
+                    local nape = nil
+                    pcall(function()
+                        nape = titan.Hitboxes.Hit.Nape
+                    end)
+                    
+                    if nape then
+                        -- Teleport to nape
+                        pcall(function()
+                            root.CFrame = CFrame.new(nape.Position + Vector3.new(0, 200, 30))
+                        end)
+                        task.wait(0.1)
                         
-                        if titansFolder then
-                            for _, titan in ipairs(titansFolder:GetChildren()) do
-                                if not titan:GetAttribute("Killed") then
-                                    local hrp = titan:FindFirstChild("HumanoidRootPart")
-                                    if hrp then
-                                        local dist = (hrp.Position - erenPart.Position).Magnitude
-                                        if dist < closestDist then
-                                            local hitboxes = titan:FindFirstChild("Hitboxes")
-                                            if hitboxes then
-                                                local hit = hitboxes:FindFirstChild("Hit")
-                                                if hit then
-                                                    local nape = hit:FindFirstChild("Nape")
-                                                    if nape then
-                                                        closestDist = dist
-                                                        closestNape = nape
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
+                        -- Attack 5 times
+                        for i = 1, 5 do
+                            pcall(function()
+                                postRemote:FireServer("Attacks", "Slash", true)
+                                postRemote:FireServer("Hitboxes", "Register", nape, 1000)
+                            end)
+                            task.wait(0.05)
                         end
                         
-                        if closestNape and (now - lastAttack) >= 0.1 then
-                            lastAttack = now
-                            root.CFrame = CFrame.new(closestNape.Position + Vector3.new(0, 200, 50))
-                            
-                            -- Multi-hit Titans
-                            task.spawn(function()
+                        ::continue_titan::
+                    end
+                end
+            end
+            
+            -- Go to cannon and fire on Colossal
+            local cannon = workspace.Climbable.Walls.Wall.Cannons["1"]
+            if cannon then
+                local hitbox = cannon:FindFirstChild("Hitbox")
+                if hitbox then
+                    -- Teleport to cannon
+                    pcall(function()
+                        root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 5, 0))
+                    end)
+                    task.wait(0.3)
+                    
+                    -- Mount cannon
+                    pcall(function()
+                        local interact1 = PlayerGui:FindFirstChild("Interact_1")
+                        if interact1 then
+                            local btn = nil
+                            for _, v in ipairs(interact1:GetDescendants()) do
+                                if v:IsA("ImageButton") and v.Visible then
+                                    btn = v
+                                    break
+                                end
+                            end
+                            if btn then
+                                GuiService.SelectedObject = btn
+                                task.wait(0.05)
+                                vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                                vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                            end
+                        end
+                    end)
+                    task.wait(0.5)
+                    
+                    -- Fire M1 30 times at Colossal
+                    print("Firing cannon...")
+                    for i = 1, 30 do
+                        pcall(function()
+                            vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                            vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                        end)
+                        task.wait(0.02)
+                    end
+                    
+                    -- Also attack Colossal directly
+                    local colossal = findColossalTitan()
+                    if colossal then
+                        pcall(function()
+                            local nape = colossal.Hitboxes.Hit.Nape
+                            if nape then
+                                root.CFrame = CFrame.new(nape.Position + Vector3.new(0, 50, 30))
                                 for i = 1, 10 do
                                     pcall(function()
                                         postRemote:FireServer("Attacks", "Slash", true)
-                                        postRemote:FireServer("Hitboxes", "Register", closestNape, math.random(1000, 1500))
+                                        postRemote:FireServer("Hitboxes", "Register", nape, 2000)
                                     end)
-                                    task.wait(0.01)
+                                    task.wait(0.02)
                                 end
-                            end)
-                        else
-                            root.CFrame = CFrame.new(erenPart.Position + Vector3.new(0, 50, 0))
-                        end
-                    end
-                    
-                    -- Go to cannon every 4 seconds
-                    if (now - lastCannonMount) >= 4 then
-                        atCannon = true
-                        lastCannonMount = now
-                        
-                        -- TP to cannon
-                        local cannon = workspace.Climbable.Walls.Wall.Cannons["1"]
-                        if cannon then
-                            local hitbox = cannon:FindFirstChild("Hitbox")
-                            if hitbox then
-                                root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 3, 0))
-                                task.wait(0.3)
-                            end
-                            
-                            -- Mount cannon
-                            local interact1 = PlayerGui:FindFirstChild("Interact_1")
-                            if interact1 then
-                                local icon = interact1:FindFirstChildWhichIsA("ImageButton")
-                                if not icon then icon = interact1:FindFirstChild("Icon", true) end
-                                if icon and icon.Visible then
-                                    GuiService.SelectedObject = icon
-                                    task.wait(0.03)
-                                    vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                                    vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-                                end
-                            end
-                            task.wait(0.3)
-                        end
-                    end
-                    
-                else
-                    -- AT CANNON - Fire on Colossal
-                    UpdateStatus("Phase 1: Firing Cannon on Colossal!")
-                    
-                    -- 30 M1 clicks on Colossal
-                    for i = 1, 30 do
-                        if not self._running then break end
-                        vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                        task.wait(0.005)
-                        vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                        task.wait(0.005)
-                    end
-                    
-                    -- Return to Eren
-                    atCannon = false
-                    if erenPart then
-                        root.CFrame = CFrame.new(erenPart.Position + Vector3.new(0, 50, 0))
-                    end
-                end
-                
-            -- === PHASE 2: DIRECT ATTACK COLOSSAL ===
-            elseif isPhase2 then
-                UpdateStatus("Phase 2: Attacking Colossal!")
-                atCannon = false
-                
-                local colossal = findColossalTitan()
-                if colossal then
-                    local nape = nil
-                    local hitboxes = colossal:FindFirstChild("Hitboxes")
-                    if hitboxes then
-                        local hit = hitboxes:FindFirstChild("Hit")
-                        if hit then nape = hit:FindFirstChild("Nape") end
-                    end
-                    
-                    if nape then
-                        root.CFrame = CFrame.new(nape.Position + Vector3.new(0, 50, 30))
-                        
-                        -- Multi-hit on nape
-                        task.spawn(function()
-                            for i = 1, 15 do
-                                pcall(function()
-                                    postRemote:FireServer("Attacks", "Slash", true)
-                                    postRemote:FireServer("Hitboxes", "Register", nape, math.random(2000, 3000))
-                                end)
-                                task.wait(0.01)
                             end
                         end)
                     end
                 end
-            else
-                root.AssemblyLinearVelocity = V3_ZERO
-                atCannon = false
             end
             
-            task.wait(0.05)
+            task.wait(0.5)
+            ::continue::
         end
     end)
 end
 
 function ColossalRaid:Stop()
     self._running = false
-    UpdateStatus("Idle")
+    print("Colossal Raid STOPPED")
 end
 -- Auto Escape listener
 getgenv().AutoEscape = false
@@ -1715,8 +1650,6 @@ Toggles.ColossalRaidToggle:OnChanged(function()
         ColossalRaid:Stop()
     end
 end)
-
-MainGroup:AddLabel("Phase 1: Titans + Cannon only\nPhase 2: Direct Attack\nFull Auto", true)
 -- ==========================================
 -- MAIN TAB : Auto Start Groupbox
 -- ==========================================
