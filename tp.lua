@@ -1302,68 +1302,88 @@ local function findTitansNearEren(erenPart, range)
 end
 
 local function fireCannon()
-    local cannons = {}
-    local climbable = workspace:FindFirstChild("Climbable")
-    if climbable then
-        local walls = climbable:FindFirstChild("Walls")
-        if walls then
-            for _, wall in ipairs(walls:GetChildren()) do
-                local cannonFolder = wall:FindFirstChild("Cannons")
-                if cannonFolder then
-                    local model1 = cannonFolder:FindFirstChild("1")
-                    if model1 and model1:IsA("Model") then
-                        table.insert(cannons, model1)
+    -- Find cannon buttons in StarterGui
+    local cannonGui = nil
+    
+    -- Path: StarterGui > Interface > Cannon
+    local starterGui = lp:FindFirstChild("PlayerGui")
+    if starterGui then
+        local interface = starterGui:FindFirstChild("Interface")
+        if interface then
+            cannonGui = interface:FindFirstChild("Cannon")
+        end
+    end
+    
+    if not cannonGui then 
+        print("Cannon GUI not found!")
+        return false 
+    end
+    
+    -- Make cannon GUI visible if not
+    if not cannonGui.Visible then
+        -- Need to go near cannon first
+        local cannon = nil
+        local climbable = workspace:FindFirstChild("Climbable")
+        if climbable then
+            local walls = climbable:FindFirstChild("Walls")
+            if walls then
+                for _, wall in ipairs(walls:GetChildren()) do
+                    local cannonFolder = wall:FindFirstChild("Cannons")
+                    if cannonFolder then
+                        local model1 = cannonFolder:FindFirstChild("1")
+                        if model1 and model1:IsA("Model") then
+                            cannon = model1
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        
+        if cannon then
+            local char = lp.Character
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local hitbox = cannon:FindFirstChild("Hitbox")
+                    if hitbox then
+                        root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 3, 0))
+                        task.wait(0.5)
                     end
                 end
             end
         end
     end
     
-    if #cannons == 0 then return false end
+    -- Try clicking visible buttons
+    local buttons = {"Down", "Left", "Right", "Up", "Constraint"}
     
-    local char = lp.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    
-    -- Find nearest cannon
-    local nearest = cannons[1]
-    local nearestDist = (root.Position - nearest:GetPivot().Position).Magnitude
-    for _, c in ipairs(cannons) do
-        local dist = (root.Position - c:GetPivot().Position).Magnitude
-        if dist < nearestDist then
-            nearestDist = dist
-            nearest = c
-        end
-    end
-    
-    -- Teleport to cannon
-    local hitbox = nearest:FindFirstChild("Hitbox")
-    if hitbox then
-        root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 5, 5))
-        task.wait(0.3)
-    end
-    
-    -- Try BillboardGui buttons
-    local interact = nearest:FindFirstChild("Interact")
-    if interact and interact:IsA("BillboardGui") then
-        local main = interact:FindFirstChild("Main")
-        if main then
-            for _, frame in ipairs(main:GetChildren()) do
-                if frame:IsA("Frame") then
-                    local button = frame:FindFirstChild("TextButton") or frame:FindFirstChild("ImageButton")
-                    if button and button.Visible then
-                        UseButton(button)
-                        return true
-                    end
+    for _, btnName in ipairs(buttons) do
+        local btn = cannonGui:FindFirstChild(btnName)
+        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then
+            if btn.Visible then
+                print("Found button:", btnName)
+                
+                -- Method 1: UseButton
+                if UseButton(btn) then
+                    print("Fired using", btnName)
+                    return true
                 end
+                
+                -- Method 2: Direct fire via VIM
+                GuiService.SelectedObject = btn
+                task.wait(0.05)
+                vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                print("Fired", btnName, "via VIM")
+                return true
             end
         end
     end
     
+    print("No visible cannon buttons found!")
     return false
 end
-
 local ColossalRaid = {}
 ColossalRaid._running = false
 
@@ -1457,11 +1477,10 @@ function ColossalRaid:Start()
                     end
                 end
                 
-                -- Fire cannons
-                if getgenv().ColossalRaidConfig.UseCannons and (now - lastCannonFire) >= getgenv().ColossalRaidConfig.CannonFireRate then
-                    lastCannonFire = now
-                    fireCannon()
-                end
+               if getgenv().ColossalRaidConfig.UseCannons and (now - lastCannonFire) >= getgenv().ColossalRaidConfig.CannonFireRate then
+    lastCannonFire = now
+    pcall(function() fireCannon() end)
+end
                 
             -- === PHASE 2: ATTACK COLOSSAL DIRECTLY ===
             elseif isPhase2 then
