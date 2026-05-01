@@ -1508,20 +1508,6 @@ function ColossalRaid:Stop()
     self._running = false
 end
 
--- UI Button for Colossal Raid
-MainGroup:AddToggle("ColossalRaidToggle", {
-    Text = "Colossal Raid Farm",
-    Default = false,
-})
-Toggles.ColossalRaidToggle:OnChanged(function()
-    if Toggles.ColossalRaidToggle.Value then
-        ColossalRaid:Start()
-    else
-        ColossalRaid:Stop()
-    end
-end)
-
-MainGroup:AddLabel("Phase 1: Defend Eren + Cannons\nPhase 2: Attack Colossal Nape", true)
 
 -- Auto Escape listener
 getgenv().AutoEscape = false
@@ -1766,6 +1752,21 @@ Toggles.AutoReturnLobbyToggle:OnChanged(function()
 end)
 
 MainGroup:AddLabel("Failsafe tps you back to lobby\nafter a timeout.")
+
+-- UI Button for Colossal Raid
+MainGroup:AddToggle("ColossalRaidToggle", {
+    Text = "Colossal Raid Farm",
+    Default = false,
+})
+Toggles.ColossalRaidToggle:OnChanged(function()
+    if Toggles.ColossalRaidToggle.Value then
+        ColossalRaid:Start()
+    else
+        ColossalRaid:Stop()
+    end
+end)
+
+MainGroup:AddLabel("Phase 1: Defend Eren + Cannons\nPhase 2: Attack Colossal Nape", true)
 
 -- ==========================================
 -- MAIN TAB : Auto Start Groupbox
