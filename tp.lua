@@ -1253,10 +1253,13 @@ end)
 -- ==========================================
 getgenv().ColossalRaidConfig = {
     Enabled = false,
-    DefendRange = 100, -- Eren se kitni door tak titans dhundo
-    CannonRange = 500, -- Cannon kitni door se fire kare
+    DefendRange = 100,
+    CannonRange = 500,
     AttackRange = 150,
-    HeightOffset = 300, -- Colossal ke liye zyada height
+    HeightOffset = 300,
+    CannonFireRate = 3,
+    DefendEren = true,
+    UseCannons = true,
 }
 
 local function findEren()
@@ -1268,27 +1271,6 @@ local function findEren()
         end
     end
     return nil
-end
-
-local function findCannons()
-    local cannons = {}
-    local climbable = workspace:FindFirstChild("Climbable")
-    if climbable then
-        local walls = climbable:FindFirstChild("Walls")
-        if walls then
-            for _, wall in ipairs(walls:GetChildren()) do
-                local cannonFolder = wall:FindFirstChild("Cannons")
-                if cannonFolder then
-                    for _, obj in ipairs(cannonFolder:GetDescendants()) do
-                        if obj:IsA("BasePart") and not obj.Name:find("Reference") then
-                            table.insert(cannons, obj)
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return cannons
 end
 
 local function findColossalTitan()
@@ -1304,7 +1286,6 @@ local function findTitansNearEren(erenPart, range)
         if titan:GetAttribute("Killed") then continue end
         local hrp = titan:FindFirstChild("HumanoidRootPart")
         if hrp and (hrp.Position - erenPart.Position).Magnitude <= range then
-            -- Check if has nape
             local hitboxes = titan:FindFirstChild("Hitboxes")
             if hitboxes then
                 local hit = hitboxes:FindFirstChild("Hit")
@@ -1320,6 +1301,69 @@ local function findTitansNearEren(erenPart, range)
     return titans
 end
 
+local function fireCannon()
+    local cannons = {}
+    local climbable = workspace:FindFirstChild("Climbable")
+    if climbable then
+        local walls = climbable:FindFirstChild("Walls")
+        if walls then
+            for _, wall in ipairs(walls:GetChildren()) do
+                local cannonFolder = wall:FindFirstChild("Cannons")
+                if cannonFolder then
+                    local model1 = cannonFolder:FindFirstChild("1")
+                    if model1 and model1:IsA("Model") then
+                        table.insert(cannons, model1)
+                    end
+                end
+            end
+        end
+    end
+    
+    if #cannons == 0 then return false end
+    
+    local char = lp.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    
+    -- Find nearest cannon
+    local nearest = cannons[1]
+    local nearestDist = (root.Position - nearest:GetPivot().Position).Magnitude
+    for _, c in ipairs(cannons) do
+        local dist = (root.Position - c:GetPivot().Position).Magnitude
+        if dist < nearestDist then
+            nearestDist = dist
+            nearest = c
+        end
+    end
+    
+    -- Teleport to cannon
+    local hitbox = nearest:FindFirstChild("Hitbox")
+    if hitbox then
+        root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 5, 5))
+        task.wait(0.3)
+    end
+    
+    -- Try BillboardGui buttons
+    local interact = nearest:FindFirstChild("Interact")
+    if interact and interact:IsA("BillboardGui") then
+        local main = interact:FindFirstChild("Main")
+        if main then
+            for _, frame in ipairs(main:GetChildren()) do
+                if frame:IsA("Frame") then
+                    local button = frame:FindFirstChild("TextButton") or frame:FindFirstChild("ImageButton")
+                    if button and button.Visible then
+                        UseButton(button)
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
 local ColossalRaid = {}
 ColossalRaid._running = false
 
@@ -1327,7 +1371,6 @@ function ColossalRaid:Start()
     if self._running then return end
     if isLobby then return end
     
-    -- Check if this is Colossal Raid
     local rsObj = ReplicatedStorage:FindFirstChild("Objectives")
     if not rsObj then return end
     if not rsObj:FindFirstChild("Defend_Eren_2") and not rsObj:FindFirstChild("Stall_Colossal_Titan") then
@@ -1361,17 +1404,16 @@ function ColossalRaid:Start()
             -- Get objective info
             local defendEren = rsObj:FindFirstChild("Defend_Eren_2")
             local stallColossal = rsObj:FindFirstChild("Stall_Colossal_Titan")
-            local isPhase1 = defendEren and defendEren.Value == 0  -- Defend objective active
-            local isPhase2 = stallColossal and stallColossal.Value == 0  -- Stall/Attack Colossal
+            local isPhase1 = defendEren and defendEren.Value == 0
+            local isPhase2 = stallColossal and stallColossal.Value == 0
             
-            -- === PHASE 1: DEFEND EREN + USE CANNONS ===
+            -- === PHASE 1: DEFEND EREN + CANNONS ===
             if isPhase1 then
                 UpdateStatus("Phase 1: Defending Eren + Cannons")
                 
-                -- Find Eren position
                 local erenPart = findEren()
                 
-                -- 1. Kill titans near Eren
+                -- Kill titans near Eren
                 if erenPart and getgenv().ColossalRaidConfig.DefendEren then
                     local nearTitans = findTitansNearEren(erenPart, getgenv().ColossalRaidConfig.DefendRange)
                     
@@ -1389,12 +1431,10 @@ function ColossalRaid:Start()
                         end
                         
                         if closestNape then
-                            -- Move to titan
                             local targetPos = closestNape.Position + Vector3.new(0, getgenv().AutoFarmConfig.HeightOffset, 30)
                             local dir = targetPos - root.Position
                             root.AssemblyLinearVelocity = dir.Unit * getgenv().AutoFarmConfig.MoveSpeed
                             
-                            -- Attack
                             local dx = root.Position.X - closestNape.Position.X
                             local dz = root.Position.Z - closestNape.Position.Z
                             if (dx*dx + dz*dz) <= getgenv().ColossalRaidConfig.AttackRange^2 and (now - lastAttack) >= 0.15 then
@@ -1404,7 +1444,7 @@ function ColossalRaid:Start()
                             end
                         end
                     else
-                        -- No titans near Eren, stay at Eren
+                        -- Stay at Eren
                         if erenPart then
                             local targetPos = erenPart.Position + Vector3.new(0, 50, 0)
                             local dir = targetPos - root.Position
@@ -1417,40 +1457,10 @@ function ColossalRaid:Start()
                     end
                 end
                 
-                -- 2. Fire cannons at Colossal (even in Phase 1)
+                -- Fire cannons
                 if getgenv().ColossalRaidConfig.UseCannons and (now - lastCannonFire) >= getgenv().ColossalRaidConfig.CannonFireRate then
-                    local cannons = findCannons()
-                    local colossal = findColossalTitan()
-                    
-                    if #cannons > 0 and colossal then
-                        lastCannonFire = now
-                        
-                        -- Teleport to nearest cannon
-                        local nearestCannon = cannons[1]
-                        local nearestDist = (root.Position - cannons[1].Position).Magnitude
-                        for _, c in ipairs(cannons) do
-                            local d = (root.Position - c.Position).Magnitude
-                            if d < nearestDist then
-                                nearestDist = d
-                                nearestCannon = c
-                            end
-                        end
-                        
-                        -- Move to cannon
-                        local cannonPos = nearestCannon.Position + Vector3.new(0, 5, 0)
-                        root.CFrame = CFrame.new(cannonPos)
-                        task.wait(0.3)
-                        
-                        -- Fire at Colossal
-                        local colossalHRP = colossal:FindFirstChild("HumanoidRootPart")
-                        if colossalHRP then
-                            -- Use spear fire or cannon fire
-                            pcall(function()
-                                getRemote:InvokeServer("Spears", "S_Fire", "1")
-                                postRemote:FireServer("Spears", "S_Explode", colossalHRP.Position)
-                            end)
-                        end
-                    end
+                    lastCannonFire = now
+                    fireCannon()
                 end
                 
             -- === PHASE 2: ATTACK COLOSSAL DIRECTLY ===
@@ -1459,7 +1469,6 @@ function ColossalRaid:Start()
                 
                 local colossal = findColossalTitan()
                 if colossal then
-                    -- Find nape
                     local hitboxes = colossal:FindFirstChild("Hitboxes")
                     local nape = nil
                     if hitboxes then
@@ -1470,7 +1479,6 @@ function ColossalRaid:Start()
                     end
                     
                     if nape then
-                        -- Move to nape (high up for Colossal)
                         local targetPos = nape.Position + Vector3.new(0, getgenv().ColossalRaidConfig.HeightOffset, 30)
                         local dir = targetPos - root.Position
                         
@@ -1484,7 +1492,6 @@ function ColossalRaid:Start()
                             root.AssemblyLinearVelocity = V3_ZERO
                         end
                         
-                        -- Attack nape
                         local dx = root.Position.X - nape.Position.X
                         local dz = root.Position.Z - nape.Position.Z
                         if (dx*dx + dz*dz) <= getgenv().ColossalRaidConfig.AttackRange^2 and (now - lastAttack) >= 0.15 then
@@ -1507,7 +1514,6 @@ end
 function ColossalRaid:Stop()
     self._running = false
 end
-
 
 -- Auto Escape listener
 getgenv().AutoEscape = false
@@ -1753,7 +1759,7 @@ end)
 
 MainGroup:AddLabel("Failsafe tps you back to lobby\nafter a timeout.")
 
--- UI Button for Colossal Raid
+-- Colossal Raid Toggle
 MainGroup:AddToggle("ColossalRaidToggle", {
     Text = "Colossal Raid Farm",
     Default = false,
@@ -1767,7 +1773,6 @@ Toggles.ColossalRaidToggle:OnChanged(function()
 end)
 
 MainGroup:AddLabel("Phase 1: Defend Eren + Cannons\nPhase 2: Attack Colossal Nape", true)
-
 -- ==========================================
 -- MAIN TAB : Auto Start Groupbox
 -- ==========================================
