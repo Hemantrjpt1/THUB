@@ -1249,19 +1249,19 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- COLOSSAL RAID DUAL FARM
+-- COLOSSAL RAID FULL SCRIPT
 -- ==========================================
 getgenv().ColossalRaidConfig = {
     Enabled = false,
-    DefendRange = 100,
-    CannonRange = 500,
-    AttackRange = 150,
+    DefendRange = 150,
+    AttackRange = 200,
     HeightOffset = 300,
-    CannonFireRate = 3,
+    CannonFireRate = 4,
     DefendEren = true,
     UseCannons = true,
 }
 
+-- Find Eren
 local function findEren()
     local obj = workspace.Unclimbable and workspace.Unclimbable.Objective
     if obj then
@@ -1273,10 +1273,12 @@ local function findEren()
     return nil
 end
 
+-- Find Colossal Titan
 local function findColossalTitan()
     return workspace:FindFirstChild("Colossal_Titan")
 end
 
+-- Find Titans near Eren
 local function findTitansNearEren(erenPart, range)
     local titans = {}
     local titansFolder = workspace:FindFirstChild("Titans")
@@ -1301,89 +1303,69 @@ local function findTitansNearEren(erenPart, range)
     return titans
 end
 
+-- Fire Cannon
 local function fireCannon()
-    -- Find cannon buttons in StarterGui
-    local cannonGui = nil
-    
-    -- Path: StarterGui > Interface > Cannon
-    local starterGui = lp:FindFirstChild("PlayerGui")
-    if starterGui then
-        local interface = starterGui:FindFirstChild("Interface")
-        if interface then
-            cannonGui = interface:FindFirstChild("Cannon")
+    local cannon = nil
+    local climbable = workspace:FindFirstChild("Climbable")
+    if climbable then
+        local walls = climbable:FindFirstChild("Walls")
+        if walls then
+            for _, wall in ipairs(walls:GetChildren()) do
+                local cannonFolder = wall:FindFirstChild("Cannons")
+                if cannonFolder then
+                    local model1 = cannonFolder:FindFirstChild("1")
+                    if model1 and model1:IsA("Model") then
+                        cannon = model1
+                        break
+                    end
+                end
+            end
         end
     end
     
-    if not cannonGui then 
-        print("Cannon GUI not found!")
-        return false 
+    if not cannon then return false end
+    
+    local char = lp.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    
+    -- Teleport to cannon
+    local hitbox = cannon:FindFirstChild("Hitbox")
+    if hitbox then
+        root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 5, 5))
+        task.wait(0.5)
     end
     
-    -- Make cannon GUI visible if not
-    if not cannonGui.Visible then
-        -- Need to go near cannon first
-        local cannon = nil
-        local climbable = workspace:FindFirstChild("Climbable")
-        if climbable then
-            local walls = climbable:FindFirstChild("Walls")
-            if walls then
-                for _, wall in ipairs(walls:GetChildren()) do
-                    local cannonFolder = wall:FindFirstChild("Cannons")
-                    if cannonFolder then
-                        local model1 = cannonFolder:FindFirstChild("1")
-                        if model1 and model1:IsA("Model") then
-                            cannon = model1
-                            break
+    -- Click BillboardGui buttons
+    local interact = cannon:FindFirstChild("Interact")
+    if interact and interact:IsA("BillboardGui") then
+        local main = interact:FindFirstChild("Main")
+        if main then
+            for _, frame in ipairs(main:GetChildren()) do
+                if frame:IsA("Frame") and frame.Visible then
+                    for _, btn in ipairs(frame:GetDescendants()) do
+                        if (btn:IsA("TextButton") or btn:IsA("ImageButton")) and btn.Visible and btn.Active then
+                            if GuiService.MenuIsOpen then
+                                vim:SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                                vim:SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                                task.wait(0.1)
+                            end
+                            GuiService.SelectedObject = btn
+                            task.wait(0.05)
+                            vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                            vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                            return true
                         end
                     end
                 end
             end
         end
-        
-        if cannon then
-            local char = lp.Character
-            if char then
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    local hitbox = cannon:FindFirstChild("Hitbox")
-                    if hitbox then
-                        root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 3, 0))
-                        task.wait(0.5)
-                    end
-                end
-            end
-        end
     end
-    
-    -- Try clicking visible buttons
-    local buttons = {"Down", "Left", "Right", "Up", "Constraint"}
-    
-    for _, btnName in ipairs(buttons) do
-        local btn = cannonGui:FindFirstChild(btnName)
-        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then
-            if btn.Visible then
-                print("Found button:", btnName)
-                
-                -- Method 1: UseButton
-                if UseButton(btn) then
-                    print("Fired using", btnName)
-                    return true
-                end
-                
-                -- Method 2: Direct fire via VIM
-                GuiService.SelectedObject = btn
-                task.wait(0.05)
-                vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-                print("Fired", btnName, "via VIM")
-                return true
-            end
-        end
-    end
-    
-    print("No visible cannon buttons found!")
     return false
 end
+
+-- Main Colossal Raid
 local ColossalRaid = {}
 ColossalRaid._running = false
 
@@ -1406,6 +1388,7 @@ function ColossalRaid:Start()
         local char, root = nil, nil
         local lastAttack = 0
         local lastCannonFire = 0
+        local savedErenPos = nil
         
         while self._running do
             if not checkMission() then
@@ -1421,20 +1404,25 @@ function ColossalRaid:Start()
             
             local now = os.clock()
             
-            -- Get objective info
             local defendEren = rsObj:FindFirstChild("Defend_Eren_2")
             local stallColossal = rsObj:FindFirstChild("Stall_Colossal_Titan")
             local isPhase1 = defendEren and defendEren.Value == 0
             local isPhase2 = stallColossal and stallColossal.Value == 0
+            
+            -- Disable collisions
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
+            end
             
             -- === PHASE 1: DEFEND EREN + CANNONS ===
             if isPhase1 then
                 UpdateStatus("Phase 1: Defending Eren + Cannons")
                 
                 local erenPart = findEren()
+                if erenPart then savedErenPos = erenPart.Position end
                 
-                -- Kill titans near Eren
-                if erenPart and getgenv().ColossalRaidConfig.DefendEren then
+                -- 1. Kill titans near Eren
+                if erenPart then
                     local nearTitans = findTitansNearEren(erenPart, getgenv().ColossalRaidConfig.DefendRange)
                     
                     if #nearTitans > 0 then
@@ -1451,36 +1439,42 @@ function ColossalRaid:Start()
                         end
                         
                         if closestNape then
+                            -- Move to titan
                             local targetPos = closestNape.Position + Vector3.new(0, getgenv().AutoFarmConfig.HeightOffset, 30)
                             local dir = targetPos - root.Position
                             root.AssemblyLinearVelocity = dir.Unit * getgenv().AutoFarmConfig.MoveSpeed
                             
-                            local dx = root.Position.X - closestNape.Position.X
-                            local dz = root.Position.Z - closestNape.Position.Z
-                            if (dx*dx + dz*dz) <= getgenv().ColossalRaidConfig.AttackRange^2 and (now - lastAttack) >= 0.15 then
+                            -- Attack
+                            local d = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(closestNape.Position.X, 0, closestNape.Position.Z)).Magnitude
+                            if d <= getgenv().ColossalRaidConfig.AttackRange and (now - lastAttack) >= 0.15 then
                                 lastAttack = now
                                 postRemote:FireServer("Attacks", "Slash", true)
                                 postRemote:FireServer("Hitboxes", "Register", closestNape, math.random(625, 850))
                             end
                         end
                     else
-                        -- Stay at Eren
-                        if erenPart then
-                            local targetPos = erenPart.Position + Vector3.new(0, 50, 0)
-                            local dir = targetPos - root.Position
-                            if dir.Magnitude > 10 then
-                                root.AssemblyLinearVelocity = dir.Unit * getgenv().AutoFarmConfig.MoveSpeed
-                            else
-                                root.AssemblyLinearVelocity = V3_ZERO
-                            end
+                        -- Stay near Eren
+                        local targetPos = erenPart.Position + Vector3.new(0, 50, 0)
+                        local dir = targetPos - root.Position
+                        if dir.Magnitude > 10 then
+                            root.AssemblyLinearVelocity = dir.Unit * getgenv().AutoFarmConfig.MoveSpeed
+                        else
+                            root.AssemblyLinearVelocity = V3_ZERO
                         end
                     end
                 end
                 
-               if getgenv().ColossalRaidConfig.UseCannons and (now - lastCannonFire) >= getgenv().ColossalRaidConfig.CannonFireRate then
-    lastCannonFire = now
-    pcall(function() fireCannon() end)
-end
+                -- 2. Fire cannons periodically
+                if getgenv().ColossalRaidConfig.UseCannons and (now - lastCannonFire) >= getgenv().ColossalRaidConfig.CannonFireRate then
+                    lastCannonFire = now
+                    local erPos = savedErenPos
+                    pcall(function() fireCannon() end)
+                    task.wait(1)
+                    -- Return to Eren
+                    if erPos and root then
+                        root.CFrame = CFrame.new(erPos + Vector3.new(0, 50, 0))
+                    end
+                end
                 
             -- === PHASE 2: ATTACK COLOSSAL DIRECTLY ===
             elseif isPhase2 then
@@ -1492,13 +1486,12 @@ end
                     local nape = nil
                     if hitboxes then
                         local hit = hitboxes:FindFirstChild("Hit")
-                        if hit then
-                            nape = hit:FindFirstChild("Nape")
-                        end
+                        if hit then nape = hit:FindFirstChild("Nape") end
                     end
                     
                     if nape then
-                        local targetPos = nape.Position + Vector3.new(0, getgenv().ColossalRaidConfig.HeightOffset, 30)
+                        -- Move to nape (high position for Colossal)
+                        local targetPos = nape.Position + Vector3.new(0, 50, 30)
                         local dir = targetPos - root.Position
                         
                         if dir.Magnitude > 10 then
@@ -1511,9 +1504,9 @@ end
                             root.AssemblyLinearVelocity = V3_ZERO
                         end
                         
-                        local dx = root.Position.X - nape.Position.X
-                        local dz = root.Position.Z - nape.Position.Z
-                        if (dx*dx + dz*dz) <= getgenv().ColossalRaidConfig.AttackRange^2 and (now - lastAttack) >= 0.15 then
+                        -- Attack nape
+                        local d = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(nape.Position.X, 0, nape.Position.Z)).Magnitude
+                        if d <= getgenv().ColossalRaidConfig.AttackRange and (now - lastAttack) >= 0.15 then
                             lastAttack = now
                             postRemote:FireServer("Attacks", "Slash", true)
                             postRemote:FireServer("Hitboxes", "Register", nape, math.random(625, 850))
@@ -1533,7 +1526,6 @@ end
 function ColossalRaid:Stop()
     self._running = false
 end
-
 -- Auto Escape listener
 getgenv().AutoEscape = false
 postRemote.OnClientEvent:Connect(function(...)
