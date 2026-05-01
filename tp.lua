@@ -2,7 +2,7 @@
 print("===== COLOSSAL TEST STARTED =====")
 
 -- Step 1: Kill nearest titan
-print("\n1. Finding titan...")
+print("\n1. Finding ti...")
 local titansFolder = workspace:FindFirstChild("Titans")
 if titansFolder then
     for _, titan in ipairs(titansFolder:GetChildren()) do
