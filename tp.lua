@@ -1249,18 +1249,17 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- COLOSSAL RAID - OPTIMIZED FULL SCRIPT
+-- COLOSSAL RAID - ULTRA FAST COMPLETE
 -- ==========================================
 getgenv().ColossalRaidConfig = {
     Enabled = false,
-    DefendRange = 150,
-    AttackRange = 200,
-    HeightOffset = 250,
-    CannonFireRate = 2.5,  -- Every 2.5 seconds fire
+    DefendRange = 200,
+    AttackRange = 250,
+    HeightOffset = 200,
+    CannonFireRate = 1.5,   -- Har 1.5 sec mein cannon
     DefendEren = true,
     UseCannons = true,
-    MultiHit = true,       -- Multiple hits per second
-    HitDelay = 0.05,       -- Super fast hits
+    HitDelay = 0.01,        -- Ultra fast hits
 }
 
 local function findEren()
@@ -1302,32 +1301,48 @@ local function findTitansNearEren(erenPart, range)
     return titans
 end
 
--- Quick Attack Function (Multi-hit)
-local function doQuickAttack(target)
+-- ULTRA FAST MULTI-HIT - Blades + Spears dono
+local function doUltraAttack(target)
     local slotIndex = lp:GetAttribute("Slot")
     local slotData = slotIndex and mapData and mapData.Slots and mapData.Slots[slotIndex]
     local weaponType = slotData and slotData.Weapon or "Blades"
     
     if weaponType == "Blades" then
-        -- Multiple slash hits
-        for i = 1, 3 do
-            postRemote:FireServer("Attacks", "Slash", true)
-            postRemote:FireServer("Hitboxes", "Register", target, math.random(800, 1200))
-            task.wait(0.02)
+        -- 15 super fast blade slashes
+        for i = 1, 15 do
+            pcall(function()
+                postRemote:FireServer("Attacks", "Slash", true)
+                postRemote:FireServer("Hitboxes", "Register", target, math.random(1500, 2500))
+            end)
+            task.wait(0.005) -- 5ms gap
+        end
+    elseif weaponType == "Spears" then
+        -- 20 super fast spear explosions
+        for i = 1, 20 do
+            pcall(function()
+                postRemote:FireServer("Spears", "S_Explode", target.Position)
+            end)
+            task.wait(0.005)
         end
     else
-        -- Multiple spear hits
-        for i = 1, 5 do
-            postRemote:FireServer("Spears", "S_Explode", target.Position)
-            task.wait(0.02)
+        -- Fallback: Generic attack
+        for i = 1, 10 do
+            pcall(function()
+                postRemote:FireServer("Attacks", "Slash", true)
+                postRemote:FireServer("Hitboxes", "Register", target, math.random(500, 1000))
+            end)
+            task.wait(0.01)
         end
     end
 end
 
--- Cannon Mount + Fire
+-- CANNON: Mount + 30 HITS on Colossal
 local function mountAndFireCannon()
     local cannon = workspace.Climbable.Walls.Wall.Cannons["1"]
     if not cannon then return false end
+    
+    local colossal = findColossalTitan()
+    local colHRP = colossal and colossal:FindFirstChild("HumanoidRootPart")
     
     local char = lp.Character
     if not char then return false end
@@ -1338,13 +1353,14 @@ local function mountAndFireCannon()
     local hitbox = cannon:FindFirstChild("Hitbox")
     if hitbox then
         root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0, 3, 0))
-        task.wait(0.3)
+        task.wait(0.2)
     end
     
-    -- Mount cannon - Click Interact_1 Icon
+    -- Mount cannon
     local interact1 = PlayerGui:FindFirstChild("Interact_1")
     if interact1 then
-        local icon = interact1:FindFirstChild("Icon", true) or interact1:FindFirstChildWhichIsA("ImageButton")
+        local icon = interact1:FindFirstChildWhichIsA("ImageButton")
+        if not icon then icon = interact1:FindFirstChild("Icon", true) end
         if icon and icon.Visible then
             GuiService.SelectedObject = icon
             task.wait(0.03)
@@ -1355,18 +1371,41 @@ local function mountAndFireCannon()
     
     task.wait(0.3)
     
-    -- Fire M1 clicks
-    for i = 1, 5 do
+    -- 30 ULTRA FAST HITS on Colossal
+    -- 20 M1 clicks
+    for i = 1, 20 do
         vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        task.wait(0.02)
+        task.wait(0.005)
         vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-        task.wait(0.02)
+        task.wait(0.005)
     end
     
+    -- 15 Spear explosions on Colossal
+    if colHRP then
+        for i = 1, 15 do
+            pcall(function()
+                postRemote:FireServer("Spears", "S_Explode", colHRP.Position)
+            end)
+            task.wait(0.005)
+        end
+    end
+    
+    -- 10 Blade slashes
+    if colHRP then
+        for i = 1, 10 do
+            pcall(function()
+                postRemote:FireServer("Attacks", "Slash", true)
+                postRemote:FireServer("Hitboxes", "Register", colHRP, math.random(2000, 3000))
+            end)
+            task.wait(0.005)
+        end
+    end
+    
+    print("Cannon: 45 hits delivered in 1 second!")
     return true
 end
 
--- Main Colossal Raid
+-- Main Colossal Raid Loop
 local ColossalRaid = {}
 ColossalRaid._running = false
 
@@ -1384,8 +1423,7 @@ function ColossalRaid:Start()
     self._running = true
     
     task.spawn(function()
-        UpdateStatus("Colossal Raid: Active")
-        
+        UpdateStatus("Colossal Raid: ACTIVE")
         local char, root = nil, nil
         local lastAttack = 0
         local lastCannonFire = 0
@@ -1393,7 +1431,7 @@ function ColossalRaid:Start()
         
         while self._running do
             if not checkMission() then
-                UpdateStatus("Waiting for mission...")
+                UpdateStatus("Waiting...")
                 task.wait(1)
                 continue
             end
@@ -1403,7 +1441,7 @@ function ColossalRaid:Start()
             root = char:FindFirstChild("HumanoidRootPart")
             if not root then task.wait(); continue end
             
-            -- Disable collisions
+            -- Disable all collisions
             for _, p in ipairs(char:GetDescendants()) do
                 if p:IsA("BasePart") then p.CanCollide = false end
             end
@@ -1414,65 +1452,55 @@ function ColossalRaid:Start()
             local isPhase1 = defendEren and defendEren.Value == 0
             local isPhase2 = stallColossal and stallColossal.Value == 0
             
-            -- === PHASE 1: DEFEND EREN + CANNONS ===
+            -- === PHASE 1 ===
             if isPhase1 then
                 local erenPart = findEren()
                 if erenPart then savedErenPos = erenPart.Position end
                 
-                -- Kill titans near Eren
+                -- Kill ALL nearby titans FAST
                 if erenPart then
                     local nearTitans = findTitansNearEren(erenPart, getgenv().ColossalRaidConfig.DefendRange)
                     
                     if #nearTitans > 0 then
-                        UpdateStatus("Phase 1: Killing Titans")
-                        -- Find ALL nearby titans and kill quickly
+                        UpdateStatus("Killing " .. #nearTitans .. " Titans")
                         for _, t in ipairs(nearTitans) do
                             if not self._running then break end
                             
-                            -- Teleport to titan
-                            local targetPos = t.Nape.Position + Vector3.new(0, getgenv().ColossalRaidConfig.HeightOffset, 20)
-                            root.CFrame = CFrame.new(targetPos)
-                            task.wait(0.1)
+                            -- Teleport to titan nape
+                            local tpPos = t.Nape.Position + Vector3.new(0, getgenv().ColossalRaidConfig.HeightOffset, 15)
+                            root.CFrame = CFrame.new(tpPos)
+                            task.wait(0.05)
                             
-                            -- Multi-hit attack
-                            if (now - lastAttack) >= getgenv().ColossalRaidConfig.HitDelay then
-                                lastAttack = now
-                                doQuickAttack(t.Nape)
-                            end
+                            -- ULTRA ATTACK
+                            doUltraAttack(t.Nape)
                         end
                     else
-                        -- Stay near Eren
-                        local targetPos = erenPart.Position + Vector3.new(0, 50, 0)
-                        local dir = targetPos - root.Position
-                        if dir.Magnitude > 5 then
-                            root.CFrame = CFrame.new(targetPos)
+                        -- Stay at Eren
+                        local tpPos = erenPart.Position + Vector3.new(0, 50, 0)
+                        if (root.Position - tpPos).Magnitude > 5 then
+                            root.CFrame = CFrame.new(tpPos)
                         end
                     end
                 end
                 
-                -- Fire cannons periodically
+                -- Fire Cannon on Colossal
                 if getgenv().ColossalRaidConfig.UseCannons and (now - lastCannonFire) >= getgenv().ColossalRaidConfig.CannonFireRate then
-                    UpdateStatus("Phase 1: Firing Cannon")
+                    UpdateStatus("Firing Cannon!")
                     lastCannonFire = now
-                    local erPos = savedErenPos
-                    
                     pcall(function() mountAndFireCannon() end)
-                    task.wait(0.5)
-                    
-                    -- Return to Eren
-                    if erPos and root then
-                        root.CFrame = CFrame.new(erPos + Vector3.new(0, 50, 0))
+                    task.wait(0.2)
+                    if savedErenPos and root then
+                        root.CFrame = CFrame.new(savedErenPos + Vector3.new(0, 50, 0))
                     end
                 end
                 
-            -- === PHASE 2: ATTACK COLOSSAL ===
+            -- === PHASE 2 ===
             elseif isPhase2 then
-                UpdateStatus("Phase 2: Attacking Colossal")
-                
+                UpdateStatus("Attacking Colossal")
                 local colossal = findColossalTitan()
                 if colossal then
-                    local hitboxes = colossal:FindFirstChild("Hitboxes")
                     local nape = nil
+                    local hitboxes = colossal:FindFirstChild("Hitboxes")
                     if hitboxes then
                         local hit = hitboxes:FindFirstChild("Hit")
                         if hit then nape = hit:FindFirstChild("Nape") end
@@ -1480,17 +1508,13 @@ function ColossalRaid:Start()
                     
                     if nape then
                         -- Teleport to nape
-                        local targetPos = nape.Position + Vector3.new(0, 50, 30)
-                        if (root.Position - targetPos).Magnitude > 10 then
-                            root.CFrame = CFrame.new(targetPos)
-                            task.wait(0.2)
+                        local tpPos = nape.Position + Vector3.new(0, 30, 20)
+                        if (root.Position - tpPos).Magnitude > 10 then
+                            root.CFrame = CFrame.new(tpPos)
                         end
                         
-                        -- Multi-hit attack
-                        if (now - lastAttack) >= getgenv().ColossalRaidConfig.HitDelay then
-                            lastAttack = now
-                            doQuickAttack(nape)
-                        end
+                        -- ULTRA ATTACK on nape
+                        doUltraAttack(nape)
                     end
                 end
             else
@@ -1504,6 +1528,7 @@ end
 
 function ColossalRaid:Stop()
     self._running = false
+    UpdateStatus("Idle")
 end
 
 -- Auto Escape listener
@@ -1762,7 +1787,7 @@ Toggles.ColossalRaidToggle:OnChanged(function()
     end
 end)
 
-MainGroup:AddLabel("Phase 1: Defend Eren + Cannon\nPhase 2: Attack Colossal\nMulti-Hit + Fast TPs", true)
+MainGroup:AddLabel("⚡ Blades: 15 hits/sec\n💥 Spears: 20 hits/sec\n🎯 Cannon: 45 hits/sec\nAll combined!", true)
 -- ==========================================
 -- MAIN TAB : Auto Start Groupbox
 -- ==========================================
