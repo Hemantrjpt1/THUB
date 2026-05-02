@@ -560,11 +560,18 @@ function AutoFarm:Start()
 							if cannon and barrelWood and base then
 								pcall(function()
 									getRemote:InvokeServer("Cannon", "Claim", cannon)
-									getRemote:InvokeServer("Cannon", "State", cannon, true, nil)
+									getRemote:InvokeServer("Cannon", "State", cannon, false, {
+										SFX = {},
+										Object = cannon,
+										BarrelWood = barrelWood,
+										Angles = {BarrelWood = 40, Base = 0},
+										Base = base,
+										Directions = {}
+									})
 								end)
 								while getgenv()._phase1Mode == "cannon" and AutoFarm._running do
 									pcall(function()
-										getRemote:InvokeServer("Cannon", "Shoot", {BarrelWood = barrelWood, Base = base})
+										getRemote:InvokeServer("Cannon", "Shoot", {BarrelWood = 40, Base = 0})
 									end)
 									task.wait(2)
 								end
