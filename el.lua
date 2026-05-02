@@ -562,12 +562,11 @@ function AutoFarm:Start()
 									getRemote:InvokeServer("Cannon", "Claim", cannon)
 									getRemote:InvokeServer("Cannon", "State", cannon, true, nil)
 								end)
-								-- Cooldown is ~1.9s per shot, fire as fast as allowed
-								while getgenv()._phase1Mode == "cannon" and self._running do
+								while getgenv()._phase1Mode == "cannon" and AutoFarm._running do
 									pcall(function()
 										getRemote:InvokeServer("Cannon", "Shoot", {BarrelWood = barrelWood, Base = base})
 									end)
-									task.wait(2) -- respect server cooldown
+									task.wait(2)
 								end
 							end
 							getgenv()._cannonFiring = false
