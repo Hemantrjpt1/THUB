@@ -530,28 +530,7 @@ function AutoFarm:Start()
 
 					-- 1. CANNON FIRE — parallel task, multi-hit Colossal
 					if colossalNape and not colossalDead then
-						task.spawn(function()
-							if getgenv()._cannonFiring then return end
-							getgenv()._cannonFiring = true
-							local cannon = getCannonModel()
-							if cannon then
-								-- Claim cannon first
-								pcall(function()
-									getRemote:InvokeServer("Cannon", "Claim", cannon)
-									getRemote:InvokeServer("Cannon", "State", cannon, true, nil)
-								end)
-								task.wait(0.1)
-								-- Fire 50 rapid shots
-								for _ = 1, 50 do
-									pcall(function()
-										getRemote:InvokeServer("Cannon", "Shoot", {BarrelWood = 0, Base = 0})
-									end)
-									task.wait(0.03)
-								end
-							end
-							getgenv()._cannonFiring = false
-						end)
-					end
+						https://www.xeno.now/download
 
 					-- 2. DEFEND EREN — hover near Eren, kill titans
 					local erenCollider = defendErenObjective and defendErenObjective:FindFirstChild("Collider")
