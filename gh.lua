@@ -548,7 +548,7 @@ function AutoFarm:Start()
 						end)
 					end
 
-					-- 2. DEFEND EREN — hit titans near Eren's position
+					-- 2. DEFEND EREN - hit titans near Eren's position
 					local erenCollider = defendErenObjective and defendErenObjective:FindFirstChild("Collider")
 					local erenPos = erenCollider and erenCollider.Position
 
@@ -944,7 +944,7 @@ if rewards then
 						},
 
 						footer = {
-							text = "TITANIC HUB • " .. DateTime.now():FormatLocalTime("LTS", "en-us")
+							text = "TITANIC HUB | " .. DateTime.now():FormatLocalTime("LTS", "en-us")
 						},
 
 						timestamp = DateTime.now():ToIsoDate()
@@ -1228,7 +1228,7 @@ local function roll(targets, rarities)
 						}
 					},
 					footer = {
-						text = "TITANIC HUB • " .. DateTime.now():FormatLocalTime("LTS", "en-us")
+						text = "TITANIC HUB | " .. DateTime.now():FormatLocalTime("LTS", "en-us")
 					},
 					timestamp = DateTime.now():ToIsoDate()
 				}}
